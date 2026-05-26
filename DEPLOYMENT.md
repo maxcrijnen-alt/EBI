@@ -65,6 +65,13 @@ or through Vercel's Git integration.
 After `npm run db:seed`:
 
 - Student: `student@example.com` / `mastery123`
-- Admin: `admin@example.com` / `mastery123`
 
-Change or remove these before sharing widely.
+The seed script no longer creates a public admin account by default. To seed an admin account for a private deployment, set these before running `npm run db:seed`:
+
+```env
+SEED_ADMIN_EMAIL="your-email@example.com"
+SEED_ADMIN_PASSWORD="use-a-private-password"
+SEED_ADMIN_NAME="Course Admin"
+```
+
+Change or remove demo credentials before sharing widely.

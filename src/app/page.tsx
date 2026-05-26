@@ -29,7 +29,7 @@ export default async function Home() {
             </ButtonLink>
           </div>
           <p className="text-sm text-[color:var(--muted)]">
-            Demo login after seeding: student@example.com / mastery123. Admin: admin@example.com / mastery123.
+            Classmates can create their own account; progress, mistakes, flashcards, and study plans stay separate.
           </p>
         </div>
         <Card className="grid gap-5">

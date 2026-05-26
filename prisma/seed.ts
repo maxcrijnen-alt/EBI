@@ -182,31 +182,35 @@ async function seedQuestions(topicMap: Map<string, string>, subtopicMap: Map<str
 }
 
 async function seedUsers() {
-  const passwordHash = await bcrypt.hash("mastery123", 12);
+  const studentPasswordHash = await bcrypt.hash(process.env.SEED_STUDENT_PASSWORD ?? "mastery123", 12);
 
   const student = await prisma.user.create({
     data: {
       email: "student@example.com",
       name: "Demo Student",
-      passwordHash,
+      passwordHash: studentPasswordHash,
       goalGrade: "7+",
       studyTimePerWeek: 6,
     },
   });
 
-  const admin = await prisma.user.create({
-    data: {
-      email: "admin@example.com",
-      name: "Course Admin",
-      passwordHash,
-      role: "ADMIN",
-      goalGrade: "Deep mastery",
-      studyTimePerWeek: 8,
-    },
-  });
+  const seededUsers = [student];
+  if (process.env.SEED_ADMIN_EMAIL && process.env.SEED_ADMIN_PASSWORD) {
+    const admin = await prisma.user.create({
+      data: {
+        email: process.env.SEED_ADMIN_EMAIL.toLowerCase(),
+        name: process.env.SEED_ADMIN_NAME ?? "Course Admin",
+        passwordHash: await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD, 12),
+        role: "ADMIN",
+        goalGrade: "Deep mastery",
+        studyTimePerWeek: 8,
+      },
+    });
+    seededUsers.push(admin);
+  }
 
   const topics = await prisma.topic.findMany({ include: { subtopics: true } });
-  for (const user of [student, admin]) {
+  for (const user of seededUsers) {
     for (const topic of topics) {
       await prisma.userMastery.create({
         data: { userId: user.id, topicId: topic.id },
