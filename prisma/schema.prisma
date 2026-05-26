@@ -1,0 +1,336 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String            @id @default(cuid())
+  email                String            @unique
+  name                 String
+  passwordHash         String
+  role                 String            @default("STUDENT")
+  goalGrade            String            @default("7+")
+  examDate             DateTime?
+  studyTimePerWeek     Int               @default(5)
+  diagnosticCompleted  Boolean           @default(false)
+  diagnosticScore      Int               @default(0)
+  examReadinessScore   Int               @default(0)
+  streakDays           Int               @default(0)
+  totalStudyMinutes    Int               @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  attempts             Attempt[]
+  flashcards           Flashcard[]
+  flashcardReviews     FlashcardReview[]
+  masteryScores        UserMastery[]
+  mistakes             Mistake[]
+  mockSessions         MockSession[]
+  rubricScores         RubricScore[]
+  sessions             Session[]
+  studyPlans           StudyPlan[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Topic {
+  id             String         @id @default(cuid())
+  slug           String         @unique
+  title          String
+  description    String
+  orderIndex     Int
+  weight         Int            @default(1)
+  coreSectionUrl String?
+  createdAt      DateTime       @default(now())
+  flashcards     Flashcard[]
+  formulas       FormulaEntry[]
+  masteryScores  UserMastery[]
+  mistakes       Mistake[]
+  questionDrafts QuestionDraft[]
+  questions      Question[]
+  subtopics      Subtopic[]
+}
+
+model Subtopic {
+  id             String         @id @default(cuid())
+  topicId        String
+  slug           String
+  title          String
+  description    String
+  orderIndex     Int
+  flashcards     Flashcard[]
+  masteryScores  UserMastery[]
+  mistakes       Mistake[]
+  questionDrafts QuestionDraft[]
+  questions      Question[]
+  topic          Topic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, slug])
+}
+
+model Question {
+  id                      String           @id @default(cuid())
+  topicId                 String
+  subtopicId              String?
+  sourceType              String           @default("AI_GENERATED")
+  questionType            String
+  difficulty              Int
+  prompt                  String
+  correctAnswer           String
+  explanation             String
+  wrongOptionExplanations String?
+  formulaTags             String?
+  estimatedSteps          String?
+  sourceInspiration       String?
+  isReviewed              Boolean          @default(false)
+  reviewStatus            String           @default("PENDING")
+  graphData               String?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  attempts                Attempt[]
+  drafts                  QuestionDraft[]
+  mistakes                Mistake[]
+  options                 QuestionOption[]
+  rubrics                 Rubric[]
+  subtopic                Subtopic?        @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  topic                   Topic            @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  label      String
+  text       String
+  isCorrect  Boolean  @default(false)
+  rationale  String
+  orderIndex Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Attempt {
+  id               String        @id @default(cuid())
+  userId           String
+  questionId       String
+  mockSessionId    String?
+  answerText       String
+  selectedOptionId String?
+  isCorrect        Boolean
+  score            Float         @default(0)
+  maxScore         Float         @default(1)
+  mode             String        @default("PRACTICE")
+  explanationStyle String?
+  feedback         String?
+  mistakeType      String?
+  timeSpentSeconds Int           @default(0)
+  createdAt        DateTime      @default(now())
+  mistakes         Mistake[]
+  mockSession      MockSession?  @relation(fields: [mockSessionId], references: [id], onDelete: SetNull)
+  question         Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  rubricScores     RubricScore[]
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Mistake {
+  id               String    @id @default(cuid())
+  userId           String
+  questionId       String
+  attemptId        String?
+  topicId          String
+  subtopicId       String?
+  questionSnapshot String
+  userAnswer       String
+  correctAnswer    String
+  explanation      String
+  difficulty       Int
+  mistakeType      String
+  formula          String?
+  reviewed         Boolean   @default(false)
+  fixedLater       Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  attempt          Attempt?  @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  question         Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  subtopic         Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  topic            Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Flashcard {
+  id           String            @id @default(cuid())
+  userId       String?
+  topicId      String?
+  subtopicId   String?
+  category     String
+  front        String
+  back         String
+  example      String?
+  trap         String?
+  sourceType   String            @default("SEEDED")
+  formulaTags  String?
+  easeFactor   Float             @default(2.5)
+  intervalDays Int               @default(0)
+  dueAt        DateTime          @default(now())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  reviews      FlashcardReview[]
+  subtopic     Subtopic?         @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  topic        Topic?            @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  user         User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FlashcardReview {
+  id          String    @id @default(cuid())
+  userId      String
+  flashcardId String
+  rating      String
+  nextDueAt   DateTime
+  createdAt   DateTime  @default(now())
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FormulaEntry {
+  id           String   @id @default(cuid())
+  topicId      String?
+  title        String
+  formula      String
+  meaning      String
+  whenToUse    String
+  variables    String
+  example      String
+  trap         String
+  relatedTypes String
+  createdAt    DateTime @default(now())
+  topic        Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+}
+
+model StudyPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  goal        String
+  timeBudget  String
+  examDate    DateTime?
+  status      String   @default("ACTIVE")
+  planJson    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MockSession {
+  id              String    @id @default(cuid())
+  userId          String
+  mode            String
+  settingsJson    String
+  status          String    @default("IN_PROGRESS")
+  estimatedScore  Float     @default(0)
+  readinessBefore Int       @default(0)
+  readinessAfter  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  attempts        Attempt[]
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Rubric {
+  id          String        @id @default(cuid())
+  questionId  String?
+  name        String
+  maxScore    Float
+  dimensions  String
+  createdAt   DateTime      @default(now())
+  question    Question?     @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  rubricScores RubricScore[]
+}
+
+model RubricScore {
+  id              String   @id @default(cuid())
+  userId          String
+  rubricId        String
+  attemptId       String?
+  totalScore      Float
+  maxScore        Float
+  feedback        String
+  correctParts    String
+  missingParts    String
+  modelAnswer     String
+  rewrittenAnswer String
+  dimensionsJson  String
+  createdAt       DateTime @default(now())
+  attempt         Attempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  rubric          Rubric   @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model QuestionDraft {
+  id          String    @id @default(cuid())
+  questionId  String?
+  topicId     String
+  subtopicId  String?
+  prompt      String
+  answer      String
+  explanation String
+  status      String    @default("DRAFT")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  question    Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  subtopic    Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  topic       Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model UserMastery {
+  id                 String    @id @default(cuid())
+  userId             String
+  topicId            String
+  subtopicId         String?
+  status             String    @default("NOT_STARTED")
+  mastery            Float     @default(0)
+  accuracy           Float     @default(0)
+  attempts           Int       @default(0)
+  correct            Int       @default(0)
+  openRubricAvg      Float     @default(0)
+  flashcardRetention Float     @default(0)
+  difficultyReached  Int       @default(1)
+  mistakeCount       Int       @default(0)
+  lastPracticedAt    DateTime?
+  updatedAt          DateTime  @updatedAt
+  subtopic           Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  topic              Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId, subtopicId])
+}
+
+model SourceDocument {
+  id            String         @id @default(cuid())
+  filename      String
+  kind          String
+  path          String
+  status        String         @default("RAW")
+  processedAt   DateTime?
+  metadataJson  String?
+  createdAt     DateTime       @default(now())
+  ingestionJobs IngestionJob[]
+}
+
+model IngestionJob {
+  id               String          @id @default(cuid())
+  sourceDocumentId String?
+  status           String          @default("PENDING")
+  log              String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  sourceDocument   SourceDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+}
