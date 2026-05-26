@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import "dotenv/config";
+import { existsSync, readFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -11,11 +12,31 @@ import {
   topicSeeds,
 } from "../src/lib/course-data";
 
+function loadLocalEnv() {
+  const path = ".env.local";
+  if (!existsSync(path)) return;
+
+  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+    const [key, ...valueParts] = trimmed.split("=");
+    process.env[key] = valueParts.join("=").replace(/^"|"$/g, "");
+  }
+}
+
+loadLocalEnv();
+
 if (!process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith("file:")) {
   throw new Error("DATABASE_URL must be a Supabase/Postgres connection string before seeding.");
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+      ? { rejectUnauthorized: false }
+      : undefined,
+});
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 

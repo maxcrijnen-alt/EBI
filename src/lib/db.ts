@@ -19,11 +19,17 @@ function databaseUrl() {
 }
 
 function createClient() {
+  const ssl =
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+      ? { rejectUnauthorized: false }
+      : undefined;
+
   const pool =
     globalForPrisma.prismaPool ??
     new Pool({
       connectionString: databaseUrl(),
       max: Number(process.env.DATABASE_POOL_MAX ?? 5),
+      ssl,
     });
 
   if (process.env.NODE_ENV !== "production") {
