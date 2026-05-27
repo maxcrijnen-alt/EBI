@@ -12,7 +12,9 @@
     "db:migrate": "node scripts/migrate-postgres.mjs",
     "db:push": "node scripts/migrate-postgres.mjs",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "ingest:sources": "tsx scripts/ingest-sources.ts",
+    "ai:generate-drafts": "tsx scripts/generate-question-drafts.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -23,7 +25,9 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",
+    "mammoth": "^1.12.0",
     "next": "16.2.6",
+    "pdf-parse": "^2.4.5",
     "pg": "8.16.3",
     "pg-protocol": "1.10.3",
     "react": "19.2.4",
@@ -33,6 +37,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",

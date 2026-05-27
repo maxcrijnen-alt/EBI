@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSession, destroySession, hashPassword, requireAdmin, requireUser, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { approveQuestionDraft, generateFocusedDraftBatch } from "@/lib/question-drafting";
 import { ensureMasteryRecords } from "@/lib/scoring";
 
 const authSchema = z.object({
@@ -171,22 +172,56 @@ export async function reviewQuestionAction(formData: FormData) {
   revalidatePath("/admin");
 }
 
-export async function createDraftQuestionAction(formData: FormData) {
+export async function generateDraftBatchAction() {
   await requireAdmin();
-  const topicId = String(formData.get("topicId") ?? "");
-  const topic = await prisma.topic.findUnique({ where: { id: topicId } });
-  if (!topic) return;
+  await generateFocusedDraftBatch(104);
+  revalidatePath("/admin");
+}
 
-  await prisma.questionDraft.create({
+export async function updateQuestionDraftAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const difficulty = Number(formData.get("difficulty") ?? 2);
+  const optionsJson = String(formData.get("optionsJson") ?? "").trim();
+
+  if (optionsJson) {
+    JSON.parse(optionsJson);
+  }
+
+  await prisma.questionDraft.update({
+    where: { id },
     data: {
-      topicId,
-      prompt: `Draft AI-generated practice for ${topic.title}: create an original question that tests one weak concept and requires visible reasoning.`,
-      answer: "Draft answer pending review.",
-      explanation: "Draft explanation pending review. Must include formula/setup/steps/common trap where relevant.",
+      questionType: String(formData.get("questionType") ?? "OPEN_ENDED"),
+      difficulty: Number.isFinite(difficulty) ? difficulty : 2,
+      prompt: String(formData.get("prompt") ?? ""),
+      answer: String(formData.get("answer") ?? ""),
+      explanation: String(formData.get("explanation") ?? ""),
+      optionsJson: optionsJson || null,
+      wrongOptionExplanations: String(formData.get("wrongOptionExplanations") ?? "") || null,
+      formulaTags: String(formData.get("formulaTags") ?? "") || null,
+      estimatedSteps: String(formData.get("estimatedSteps") ?? "") || null,
+      sourceInspiration: String(formData.get("sourceInspiration") ?? "") || null,
+      notes: String(formData.get("notes") ?? "") || null,
       status: "DRAFT",
-      notes: "Generated as a review placeholder. Admin should edit before approval.",
     },
   });
 
+  revalidatePath("/admin");
+}
+
+export async function approveQuestionDraftAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  await approveQuestionDraft(id);
+  revalidatePath("/admin");
+}
+
+export async function rejectQuestionDraftAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  await prisma.questionDraft.update({
+    where: { id },
+    data: { status: "REJECTED" },
+  });
   revalidatePath("/admin");
 }

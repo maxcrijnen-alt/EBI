@@ -26,7 +26,12 @@ export async function POST(request: Request) {
     question,
     style: parsed.style,
     userAnswer: parsed.userAnswer,
+    userId: user.id,
   });
 
-  return NextResponse.json({ explanation });
+  return NextResponse.json({
+    explanation: explanation.text,
+    aiUsed: explanation.aiUsed,
+    fallbackReason: explanation.fallbackReason,
+  });
 }

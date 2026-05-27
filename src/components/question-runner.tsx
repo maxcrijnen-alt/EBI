@@ -24,6 +24,7 @@ type AttemptResult = {
   correctAnswer: string;
   explanation: string;
   mistakeType?: string | null;
+  rubricDimensions?: Array<{ name: string; score: number; max: number; note: string }> | null;
   readiness: number;
 };
 
@@ -39,6 +40,32 @@ const styles = [
   ["easier", "Easier"],
 ];
 
+const structuredTypes = new Set([
+  "OPEN_ENDED",
+  "DERIVATION",
+  "EXPLAIN_INTUITION",
+  "COMPARE_OUTCOMES",
+  "FIND_THE_MISTAKE",
+]);
+
+const structuredFields = [
+  ["formula", "Formula or concept"],
+  ["setup", "Setup"],
+  ["calculation", "Calculation or derivation"],
+  ["final", "Final answer"],
+  ["interpretation", "Economic interpretation"],
+] as const;
+
+type StructuredAnswer = Record<(typeof structuredFields)[number][0], string>;
+
+const emptyStructuredAnswer: StructuredAnswer = {
+  formula: "",
+  setup: "",
+  calculation: "",
+  final: "",
+  interpretation: "",
+};
+
 export function QuestionRunner({
   initialQuestion,
   mode,
@@ -47,6 +74,7 @@ export function QuestionRunner({
   const [question, setQuestion] = useState(initialQuestion);
   const [selectedOptionId, setSelectedOptionId] = useState("");
   const [answerText, setAnswerText] = useState("");
+  const [structuredAnswer, setStructuredAnswer] = useState<StructuredAnswer>(emptyStructuredAnswer);
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [explanation, setExplanation] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,6 +92,7 @@ export function QuestionRunner({
     setExplanation("");
     setSelectedOptionId("");
     setAnswerText("");
+    setStructuredAnswer(emptyStructuredAnswer);
     const params = new URLSearchParams({ mode });
     if (topicSlug) params.set("topic", topicSlug);
     const response = await fetch(`/api/practice/next?${params.toString()}`);
@@ -74,13 +103,14 @@ export function QuestionRunner({
 
   async function submit() {
     if (!question) return;
+    const answer = buildAnswerText();
     setLoading(true);
     const response = await fetch("/api/attempts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         questionId: question.id,
-        answerText,
+        answerText: answer,
         selectedOptionId: selectedOptionId || null,
         mode,
       }),
@@ -93,6 +123,7 @@ export function QuestionRunner({
 
   async function getExplanation(style: string) {
     if (!question) return;
+    const answer = buildAnswerText();
     setLoading(true);
     const response = await fetch("/api/explain", {
       method: "POST",
@@ -100,12 +131,28 @@ export function QuestionRunner({
       body: JSON.stringify({
         questionId: question.id,
         style,
-        userAnswer: answerText,
+        userAnswer: answer,
       }),
     });
     const data = await response.json();
     setExplanation(data.explanation);
     setLoading(false);
+  }
+
+  function usesStructuredAnswer() {
+    return question ? structuredTypes.has(question.questionType) && question.options.length === 0 : false;
+  }
+
+  function buildAnswerText() {
+    if (!usesStructuredAnswer()) return answerText;
+    return structuredFields
+      .map(([key, label]) => `${label}: ${structuredAnswer[key].trim() || "(blank)"}`)
+      .join("\n");
+  }
+
+  function hasAnswer() {
+    if (selectedOptionId || answerText.trim()) return true;
+    return usesStructuredAnswer() && Object.values(structuredAnswer).some((value) => value.trim().length > 0);
   }
 
   if (!question) {
@@ -167,6 +214,26 @@ export function QuestionRunner({
                 </label>
               ))}
             </div>
+          ) : usesStructuredAnswer() ? (
+            <div className="grid gap-3">
+              {structuredFields.map(([key, label]) => (
+                <label key={key} className="grid gap-2 text-sm font-medium">
+                  {label}
+                  <textarea
+                    className="min-h-24 rounded-md border border-[color:var(--line)] bg-[color:var(--panel)] p-3 outline-none focus:border-[color:var(--accent)]"
+                    value={structuredAnswer[key]}
+                    onChange={(event) =>
+                      setStructuredAnswer((current) => ({ ...current, [key]: event.target.value }))
+                    }
+                    placeholder={
+                      key === "interpretation"
+                        ? "Add the economic meaning, welfare/intuitive implication, or common trap."
+                        : "Write this step as you would show it on the exam."
+                    }
+                  />
+                </label>
+              ))}
+            </div>
           ) : (
             <label className="grid gap-2 text-sm font-medium">
               Your answer
@@ -182,7 +249,7 @@ export function QuestionRunner({
           <div className="flex flex-wrap gap-2">
             <button
               className="rounded-md bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              disabled={loading || (!selectedOptionId && !answerText.trim())}
+              disabled={loading || !hasAnswer()}
               onClick={submit}
             >
               Submit answer
@@ -217,6 +284,24 @@ export function QuestionRunner({
               {result.mistakeType ? <Badge>{result.mistakeType}</Badge> : null}
             </div>
             <p className="text-sm">{result.feedback}</p>
+            {result.rubricDimensions?.length ? (
+              <div className="grid gap-2">
+                {result.rubricDimensions.map((dimension) => (
+                  <div
+                    key={dimension.name}
+                    className="grid gap-1 rounded-md border border-[color:var(--line)] p-3 text-sm"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium">{dimension.name}</span>
+                      <span className="text-[color:var(--muted)]">
+                        {dimension.score}/{dimension.max}
+                      </span>
+                    </div>
+                    <p className="text-[color:var(--muted)]">{dimension.note}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className="rounded-md bg-black/[.04] p-4 text-sm dark:bg-white/[.06]">
               <p className="font-semibold">Correct answer</p>
               <p>{result.correctAnswer}</p>

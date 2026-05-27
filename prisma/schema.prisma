@@ -24,6 +24,7 @@ model User {
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   attempts             Attempt[]
+  aiInteractions       AIInteraction[]
   flashcards           Flashcard[]
   flashcardReviews     FlashcardReview[]
   masteryScores        UserMastery[]
@@ -58,7 +59,9 @@ model Topic {
   mistakes       Mistake[]
   questionDrafts QuestionDraft[]
   questions      Question[]
+  sourceChunks   SourceChunk[]
   subtopics      Subtopic[]
+  topicSummary   TopicSummary?
 }
 
 model Subtopic {
@@ -73,6 +76,7 @@ model Subtopic {
   mistakes       Mistake[]
   questionDrafts QuestionDraft[]
   questions      Question[]
+  sourceChunks   SourceChunk[]
   topic          Topic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
   @@unique([topicId, slug])
@@ -278,9 +282,20 @@ model QuestionDraft {
   questionId  String?
   topicId     String
   subtopicId  String?
+  questionType String    @default("OPEN_ENDED")
+  difficulty  Int       @default(2)
   prompt      String
   answer      String
   explanation String
+  optionsJson String?
+  wrongOptionExplanations String?
+  formulaTags String?
+  estimatedSteps String?
+  sourceInspiration String?
+  sourceChunkIds String?
+  generationKey String? @unique
+  generationModel String?
+  isOriginal Boolean @default(true)
   status      String    @default("DRAFT")
   notes       String?
   createdAt   DateTime  @default(now())
@@ -322,6 +337,7 @@ model SourceDocument {
   processedAt   DateTime?
   metadataJson  String?
   createdAt     DateTime       @default(now())
+  chunks        SourceChunk[]
   ingestionJobs IngestionJob[]
 }
 
@@ -333,4 +349,56 @@ model IngestionJob {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   sourceDocument   SourceDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+}
+
+model SourceChunk {
+  id               String         @id @default(cuid())
+  sourceDocumentId String
+  topicId          String?
+  subtopicId       String?
+  chunkIndex       Int
+  text             String
+  normalizedHash   String
+  charCount        Int
+  metadataJson     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  sourceDocument   SourceDocument @relation(fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+  subtopic         Subtopic?      @relation(fields: [subtopicId], references: [id], onDelete: SetNull)
+  topic            Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceDocumentId, chunkIndex])
+  @@index([topicId])
+  @@index([subtopicId])
+  @@index([normalizedHash])
+}
+
+model TopicSummary {
+  id             String   @id @default(cuid())
+  topicId        String   @unique
+  summary        String
+  keyFormulas    String?
+  commonTraps    String?
+  sourceNotes    String?
+  generatedFrom  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  topic          Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model AIInteraction {
+  id             String   @id @default(cuid())
+  userId         String?
+  purpose        String
+  model          String?
+  status         String
+  fallbackReason String?
+  promptChars    Int      @default(0)
+  responseChars  Int      @default(0)
+  metadataJson   String?
+  createdAt      DateTime @default(now())
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([purpose, createdAt])
 }

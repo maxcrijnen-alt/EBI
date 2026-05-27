@@ -213,7 +213,7 @@ export async function submitAttempt(params: {
       question.questionType,
     )
   ) {
-    rubricGrade = await gradeOpenAnswer(question, params.answerText);
+    rubricGrade = await gradeOpenAnswer(question, params.answerText, params.userId);
     maxScore = rubricGrade.maxScore;
     score = rubricGrade.totalScore;
     isCorrect = rubricGrade.totalScore / rubricGrade.maxScore >= 0.72;
@@ -346,6 +346,7 @@ export async function submitAttempt(params: {
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
     mistakeType,
+    rubricDimensions: rubricGrade?.dimensions ?? null,
     readiness,
   };
 }

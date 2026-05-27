@@ -24,20 +24,21 @@ export async function POST(request: Request) {
     include: { topic: true },
   });
 
-  const plan = buildPanicPlan({
+  const result = await buildPanicPlan({
     ...parsed,
     weakTopics: weakTopics.map((item) => item.topic.title),
+    userId: user.id,
   });
 
   await prisma.studyPlan.create({
     data: {
       userId: user.id,
-      title: plan.title,
+      title: result.plan.title,
       goal: parsed.goal,
       timeBudget: parsed.hours,
-      planJson: JSON.stringify(plan),
+      planJson: JSON.stringify(result.plan),
     },
   });
 
-  return NextResponse.json({ plan });
+  return NextResponse.json(result);
 }
